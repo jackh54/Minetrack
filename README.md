@@ -79,6 +79,41 @@ docker-compose up --build
 docker-compose down
 ```
 
+## Cloudflare Workers
+Minetrack can run on [Cloudflare Workers](https://developers.cloudflare.com/workers/) with a Durable Object for WebSocket connections and scheduled Minecraft server pings.
+
+### Prerequisites
+1. A [Cloudflare account](https://dash.cloudflare.com/sign-up)
+2. Node.js 18+
+3. `wrangler login`
+
+### Local development
+```bash
+npm install
+npm run dev:worker
+```
+
+This builds the frontend into `dist/` and starts `wrangler dev` (default: http://localhost:8787).
+
+### Deploy
+```bash
+npm run deploy:worker
+```
+
+### Configuration
+- Edit `config.json` and `servers.json` as usual before deploying.
+- Java Edition (`PC`) servers are supported via Cloudflare's outbound TCP sockets API.
+- Bedrock Edition (`PE`) servers are not supported on Workers because outbound UDP is unavailable.
+- Historical graph logging uses Cloudflare D1 when `logToDatabase` is `true` in `config.json`.
+
+To enable D1 logging:
+```bash
+wrangler d1 create minetrack
+wrangler d1 migrations apply minetrack --remote
+```
+
+Then set the returned `database_id` in `wrangler.jsonc` under `d1_databases`, set `logToDatabase` to `true` in `config.json`, and redeploy.
+
 ## Nginx reverse proxy
 The following configuration enables Nginx to act as reverse proxy for a Minetrack instance that is available at port 8080 on localhost:
 ```

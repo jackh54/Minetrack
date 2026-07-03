@@ -46,11 +46,15 @@
     "eslint-plugin-import": "^2.21.1",
     "eslint-plugin-node": "^11.1.0",
     "eslint-plugin-promise": "^4.2.1",
-    "parcel": "^2.8.0"
+    "parcel": "^2.8.0",
+    "wrangler": "^4.24.0"
   },
   "scripts": {
     "build": "eslint assets/js/*.js && parcel build assets/html/index.html --dist-dir dist",
-    "dev": "parcel build assets/html/index.html --no-optimize --dist-dir dist"
+    "dev": "parcel build assets/html/index.html --no-optimize --dist-dir dist",
+    "dev:worker": "npm run dev && wrangler dev",
+    "deploy:worker": "npm run build && wrangler deploy",
+    "check:worker": "wrangler check"
   },
   "optionalDependencies": {
     "bufferutil": "^4.0.1",

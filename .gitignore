@@ -14,3 +14,7 @@ database.sql-journal
 # parcel
 dist/
 .parcel-cache/
+
+# cloudflare
+.wrangler/
+.dev.vars
