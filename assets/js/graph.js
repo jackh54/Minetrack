@@ -123,9 +123,13 @@ export class GraphDisplayManager {
   }
 
   getPlotSize () {
+    const container = document.getElementById('big-graph')
+    const parent = container?.parentElement
+    const width = parent ? parent.clientWidth - 8 : Math.max(window.innerWidth - 48, 600)
+
     return {
-      width: Math.max(window.innerWidth, 800) * 0.9,
-      height: 400
+      width,
+      height: 480
     }
   }
 
@@ -261,19 +265,19 @@ export class GraphDisplayManager {
       ],
       axes: [
         {
-          font: '14px "Open Sans", sans-serif',
-          stroke: '#FFF',
+          font: '12px "Inter", sans-serif',
+          stroke: '#8b8fa3',
           grid: {
             show: false
           },
           space: 60
         },
         {
-          font: '14px "Open Sans", sans-serif',
-          stroke: '#FFF',
-          size: 65,
+          font: '12px "Inter", sans-serif',
+          stroke: '#8b8fa3',
+          size: 55,
           grid: {
-            stroke: '#333',
+            stroke: 'rgba(255,255,255,0.06)',
             width: 1
           },
           split: () => {
@@ -300,7 +304,7 @@ export class GraphDisplayManager {
     }, this.getGraphData(), document.getElementById('big-graph'))
 
     // Show the settings-toggle element
-    document.getElementById('settings-toggle').style.display = 'inline-block'
+    document.getElementById('settings-toggle').style.display = 'inline-flex'
   }
 
   redraw = () => {
@@ -377,7 +381,7 @@ export class GraphDisplayManager {
   }
 
   handleShowButtonClick = (event) => {
-    const showType = event.target.getAttribute('minetrack-show-type')
+    const showType = event.currentTarget.getAttribute('minetrack-show-type')
 
     // If set to "Only Favorites", set internal state so that
     // visible graphData is automatically updating when a ServerRegistration's #isVisible changes

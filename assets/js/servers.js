@@ -49,6 +49,18 @@ export class ServerRegistry {
     // Reset modified DOM structures
     document.getElementById('server-list').innerHTML = ''
   }
+
+  requestResizeAllGraphs () {
+    if (this._resizeTimeout) {
+      clearTimeout(this._resizeTimeout)
+    }
+
+    this._resizeTimeout = setTimeout(() => {
+      for (const serverRegistration of this.getServerRegistrations()) {
+        serverRegistration.resizeGraph()
+      }
+    }, 200)
+  }
 }
 
 export class ServerRegistration {
@@ -78,8 +90,17 @@ export class ServerRegistration {
     ]
   }
 
+  getServerPlotSize (container) {
+    return {
+      width: container.clientWidth || 600,
+      height: 140
+    }
+  }
+
   buildPlotInstance () {
     const tickCount = 4
+    const container = document.getElementById(`chart_${this.serverId}`)
+    const plotSize = this.getServerPlotSize(container)
 
     // eslint-disable-next-line new-cap
     this._plotInstance = new uPlot({
@@ -98,8 +119,7 @@ export class ServerRegistration {
           }
         })
       ],
-      height: 100,
-      width: 400,
+      ...plotSize,
       cursor: {
         y: false,
         drag: {
@@ -115,7 +135,7 @@ export class ServerRegistration {
       series: [
         {},
         {
-          stroke: '#E9E581',
+          stroke: this.data.color,
           width: 2,
           value: (_, raw) => `${formatNumber(raw)} Players`,
           spanGaps: true,
@@ -132,11 +152,11 @@ export class ServerRegistration {
           ticks: {
             show: false
           },
-          font: '14px "Open Sans", sans-serif',
-          stroke: '#A3A3A3',
-          size: 55,
+          font: '11px "Inter", sans-serif',
+          stroke: '#8b8fa3',
+          size: 45,
           grid: {
-            stroke: '#333',
+            stroke: 'rgba(255,255,255,0.06)',
             width: 1
           },
           split: () => {
@@ -158,7 +178,19 @@ export class ServerRegistration {
       legend: {
         show: false
       }
-    }, this._graphData, document.getElementById(`chart_${this.serverId}`))
+    }, this._graphData, container)
+  }
+
+  resizeGraph () {
+    if (!this._plotInstance) {
+      return
+    }
+
+    const container = document.getElementById(`chart_${this.serverId}`)
+
+    if (container) {
+      this._plotInstance.setSize(this.getServerPlotSize(container))
+    }
   }
 
   handlePing (payload, timestamp) {
@@ -277,19 +309,35 @@ export class ServerRegistration {
     const serverElement = document.createElement('div')
 
     serverElement.id = `container_${this.serverId}`
-    serverElement.innerHTML = `<div class="column column-favicon">
-        <img class="server-favicon" src="${latestPing.favicon || MISSING_FAVICON}" id="favicon_${this.serverId}" title="${this.data.name}\n${formatMinecraftServerAddress(this.data.ip, this.data.port)}">
+    serverElement.innerHTML = `<div class="server-top">
+        <div class="server-identity">
+          <img class="server-favicon" src="${latestPing.favicon || MISSING_FAVICON}" id="favicon_${this.serverId}" title="${this.data.name}\n${formatMinecraftServerAddress(this.data.ip, this.data.port)}">
+          <div>
+            <h3 class="server-name"><span class="${this._app.favoritesManager.getIconClass(this.isFavorite)}" id="favorite-toggle_${this.serverId}"></span> ${this.data.name}</h3>
+            <span class="server-error" id="error_${this.serverId}"></span>
+          </div>
+        </div>
         <span class="server-rank" id="ranking_${this.serverId}"></span>
       </div>
-      <div class="column column-status">
-        <h3 class="server-name"><span class="${this._app.favoritesManager.getIconClass(this.isFavorite)}" id="favorite-toggle_${this.serverId}"></span> ${this.data.name}</h3>
-        <span class="server-error" id="error_${this.serverId}"></span>
-        <span class="server-label" id="player-count_${this.serverId}">Players: <span class="server-value" id="player-count-value_${this.serverId}"></span></span>
-        <span class="server-label" id="peak_${this.serverId}">${this._app.publicConfig.graphDurationLabel} Peak: <span class="server-value" id="peak-value_${this.serverId}">-</span></span>
-        <span class="server-label" id="record_${this.serverId}">Record: <span class="server-value" id="record-value_${this.serverId}">-</span></span>
-        <span class="server-label" id="version_${this.serverId}"></span>
+      <div class="server-stats">
+        <div class="server-stat server-stat-primary" id="player-count_${this.serverId}">
+          <span class="server-stat-label">Players</span>
+          <span class="server-stat-value" id="player-count-value_${this.serverId}">-</span>
+        </div>
+        <div class="server-stat" id="peak_${this.serverId}">
+          <span class="server-stat-label">${this._app.publicConfig.graphDurationLabel} Peak</span>
+          <span class="server-stat-value" id="peak-value_${this.serverId}">-</span>
+        </div>
+        <div class="server-stat" id="record_${this.serverId}">
+          <span class="server-stat-label">Record</span>
+          <span class="server-stat-value" id="record-value_${this.serverId}">-</span>
+        </div>
+        <div class="server-stat" id="version_${this.serverId}">
+          <span class="server-stat-label">Version</span>
+          <span class="server-stat-value" id="version-value_${this.serverId}">-</span>
+        </div>
       </div>
-      <div class="column column-graph" id="chart_${this.serverId}"></div>`
+      <div class="server-graph" id="chart_${this.serverId}"></div>`
 
     serverElement.setAttribute('class', 'server')
 
@@ -298,15 +346,12 @@ export class ServerRegistration {
 
   updateHighlightedValue (selectedCategory) {
     ['player-count', 'peak', 'record'].forEach((category) => {
-      const labelElement = document.getElementById(`${category}_${this.serverId}`)
-      const valueElement = document.getElementById(`${category}-value_${this.serverId}`)
+      const statElement = document.getElementById(`${category}_${this.serverId}`)
 
       if (selectedCategory && category === selectedCategory) {
-        labelElement.setAttribute('class', 'server-highlighted-label')
-        valueElement.setAttribute('class', 'server-highlighted-value')
+        statElement.classList.add('server-stat-highlighted')
       } else {
-        labelElement.setAttribute('class', 'server-label')
-        valueElement.setAttribute('class', 'server-value')
+        statElement.classList.remove('server-stat-highlighted')
       }
     })
   }

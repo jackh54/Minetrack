@@ -7,8 +7,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   window.addEventListener('resize', function () {
     app.percentageBar.redraw()
-
-    // Delegate to GraphDisplayManager which can check if the resize is necessary
     app.graphDisplayManager.requestResize()
+    app.serverRegistry.requestResizeAllGraphs()
   }, false)
 }, false)

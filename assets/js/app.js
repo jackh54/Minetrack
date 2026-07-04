@@ -36,6 +36,16 @@ export class App {
   setPublicConfig (publicConfig) {
     this.publicConfig = publicConfig
 
+    const labelEl = document.getElementById('graph-duration-label')
+    if (labelEl && publicConfig.graphDurationLabel) {
+      labelEl.textContent = `(${publicConfig.graphDurationLabel})`
+    }
+
+    const graphSection = document.querySelector('.graph-section')
+    if (graphSection) {
+      graphSection.style.display = publicConfig.isGraphVisible ? 'block' : 'none'
+    }
+
     this.serverRegistry.assignServers(publicConfig.servers)
 
     // Start repeating frontend tasks once it has received enough data to be considered active

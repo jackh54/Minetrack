@@ -101,7 +101,6 @@ export class SocketManager {
           this._app.graphDisplayManager.buildPlotInstance(payload.timestamps, payload.graphData)
 
           // Build checkbox elements for graph controls
-          let lastRowCounter = 0
           let controlsHTML = ''
 
           this._app.serverRegistry.getServerRegistrations()
@@ -110,19 +109,13 @@ export class SocketManager {
             .forEach(serverName => {
               const serverRegistration = this._app.serverRegistry.getServerRegistration(serverName)
 
-              controlsHTML += `<td><label>
+              controlsHTML += `<label class="graph-control-label">
                 <input type="checkbox" class="graph-control" minetrack-server-id="${serverRegistration.serverId}" ${serverRegistration.isVisible ? 'checked' : ''}>
                 ${serverName}
-                </label></td>`
-
-              // Occasionally break table rows using a magic number
-              if (++lastRowCounter % 6 === 0) {
-                controlsHTML += '</tr><tr>'
-              }
+                </label>`
             })
 
-          // Apply generated HTML and show controls
-          document.getElementById('big-graph-checkboxes').innerHTML = `<table><tr>${controlsHTML}</tr></table>`
+          document.getElementById('big-graph-checkboxes').innerHTML = controlsHTML
           document.getElementById('big-graph-controls').style.display = 'block'
 
           // Bind click event for updating graph data
