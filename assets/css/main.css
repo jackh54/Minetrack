@@ -26,7 +26,6 @@
   --radius-lg: 14px;
   --shadow: 0 1px 3px rgba(0, 0, 0, 0.4), 0 4px 16px rgba(0, 0, 0, 0.25);
   --max-width: 1320px;
-  --graph-height: 480px;
   --server-graph-height: 140px;
 }
 
@@ -207,33 +206,10 @@ strong {
 
 /* ── Sections ── */
 
-.section-header {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 12px;
-}
-
 .section-title {
   font-size: 16px;
   font-weight: 600;
   color: var(--color-text);
-}
-
-.section-subtitle {
-  font-weight: 400;
-  color: var(--color-text-secondary);
-  font-size: 14px;
-}
-
-.section-hint {
-  font-size: 12px;
-  color: var(--color-muted);
-}
-
-.graph-section {
-  margin-bottom: 36px;
 }
 
 .servers-section {
@@ -242,125 +218,6 @@ strong {
 
 .servers-section > .section-title {
   margin-bottom: 16px;
-}
-
-/* ── Main graph ── */
-
-.graph-panel {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  padding: 16px 8px 8px 0;
-  box-shadow: var(--shadow);
-  overflow: hidden;
-  min-height: 500px;
-  position: relative;
-}
-
-.graph-empty-state {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  color: var(--color-text-secondary);
-  pointer-events: none;
-  z-index: 1;
-}
-
-.graph-empty-state p {
-  font-size: 14px;
-  font-weight: 500;
-}
-
-.graph-empty-hint {
-  font-size: 12px !important;
-  font-weight: 400 !important;
-  color: var(--color-muted);
-}
-
-#big-graph {
-  width: 100%;
-  min-height: 480px;
-  position: relative;
-  z-index: 2;
-}
-
-#big-graph-controls {
-  margin-top: 12px;
-  display: none;
-}
-
-#big-graph-controls-drawer {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  padding: 16px;
-  display: none;
-}
-
-.graph-controls-setall {
-  display: flex;
-  gap: 8px;
-  justify-content: center;
-  flex-wrap: wrap;
-  margin-top: 16px;
-  padding-top: 16px;
-  border-top: 1px solid var(--color-border);
-}
-
-.graph-controls-show {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  background: var(--color-surface-raised);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  color: var(--color-text);
-  font-family: inherit;
-  font-size: 13px;
-  font-weight: 500;
-  padding: 8px 14px;
-  cursor: pointer;
-  transition: background 0.15s;
-}
-
-.graph-controls-show:hover {
-  background: var(--color-surface-hover);
-}
-
-#big-graph-controls .icon-star {
-  color: var(--color-gold);
-}
-
-#big-graph-checkboxes {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: 6px 16px;
-}
-
-.graph-control-label {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  color: var(--color-text-secondary);
-  cursor: pointer;
-  padding: 4px 0;
-  transition: color 0.15s;
-}
-
-.graph-control-label:hover {
-  color: var(--color-text);
-}
-
-.graph-control-label input[type="checkbox"] {
-  accent-color: var(--color-accent);
-  width: 15px;
-  height: 15px;
-  cursor: pointer;
 }
 
 /* ── Server cards ── */

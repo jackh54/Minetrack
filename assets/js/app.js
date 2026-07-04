@@ -1,7 +1,6 @@
 import { ServerRegistry } from './servers'
 import { SocketManager } from './socket'
 import { SortController } from './sort'
-import { GraphDisplayManager } from './graph'
 import { PercentageBar } from './percbar'
 import { FavoritesManager } from './favorites'
 import { Tooltip, Caption, formatNumber } from './util'
@@ -15,7 +14,6 @@ export class App {
     this.serverRegistry = new ServerRegistry(this)
     this.socketManager = new SocketManager(this)
     this.sortController = new SortController(this)
-    this.graphDisplayManager = new GraphDisplayManager(this)
     this.percentageBar = new PercentageBar(this)
     this.favoritesManager = new FavoritesManager(this)
 
@@ -35,16 +33,6 @@ export class App {
 
   setPublicConfig (publicConfig) {
     this.publicConfig = publicConfig
-
-    const labelEl = document.getElementById('graph-duration-label')
-    if (labelEl && publicConfig.graphDurationLabel) {
-      labelEl.textContent = `(${publicConfig.graphDurationLabel})`
-    }
-
-    const graphSection = document.querySelector('.graph-section')
-    if (graphSection) {
-      graphSection.style.display = publicConfig.isGraphVisible ? 'block' : 'none'
-    }
 
     this.serverRegistry.assignServers(publicConfig.servers)
 
@@ -77,9 +65,7 @@ export class App {
 
     // Reset individual tracker elements to flush any held data
     this.serverRegistry.reset()
-    this.socketManager.reset()
     this.sortController.reset()
-    this.graphDisplayManager.reset()
     this.percentageBar.reset()
 
     // Undefine publicConfig, resynced during the connection handshake

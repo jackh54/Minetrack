@@ -65,7 +65,6 @@ export class ServerRegistry {
 
 export class ServerRegistration {
   playerCount = 0
-  isVisible = true
   isFavorite = false
   rankIndex
   lastRecordData
@@ -77,10 +76,6 @@ export class ServerRegistration {
     this.data = data
     this._graphData = [[], []]
     this._failedSequentialPings = 0
-  }
-
-  getGraphDataIndex () {
-    return this.serverId + 1
   }
 
   addGraphPoints (points, timestampPoints) {

@@ -53,9 +53,6 @@ export class FavoritesManager {
     // This handles the favorite sorting logic internally
     this._app.sortController.sortServers()
 
-    this._app.graphDisplayManager.handleServerIsFavoriteUpdate(serverRegistration)
-
-    // Write an updated settings payload
     this.updateLocalStorage()
   }
 

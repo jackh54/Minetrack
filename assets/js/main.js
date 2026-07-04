@@ -7,7 +7,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   window.addEventListener('resize', function () {
     app.percentageBar.redraw()
-    app.graphDisplayManager.requestResize()
     app.serverRegistry.requestResizeAllGraphs()
   }, false)
 }, false)
