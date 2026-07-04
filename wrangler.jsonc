@@ -32,7 +32,7 @@
     {
       "binding": "DB",
       "database_name": "minetrack",
-      "database_id": "local-minetrack-db",
+      "database_id": "a145cf87-4445-4cb4-9287-1af90fed1856",
       "migrations_dir": "migrations"
     }
   ],
