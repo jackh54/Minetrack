@@ -1,12 +1,12 @@
 [
 	{
-		"name": "Hypixel",
-		"ip": "hypixel.net",
+		"name": "Litsl",
+		"ip": "litsl.net",
 		"type": "PC"
 	},
 	{
-		"name": "CubeCraft",
-		"ip": "play.cubecraft.net",
+		"name": "CherrySMP",
+		"ip": "cherrysmp.lol",
 		"type": "PC"
 	}
 ]
