@@ -21,11 +21,7 @@ export class GraphDisplayManager {
   }
 
   addGraphPoint (timestamp, playerCounts) {
-    if (!this._hasLoadedSettings) {
-      // _hasLoadedSettings is controlled by #setGraphData
-      // It will only be true once the context has been loaded and initial payload received
-      // #addGraphPoint should not be called prior to that since it means the data is racing
-      // and the application has received updates prior to the initial state
+    if (!this._hasLoadedSettings || !this._plotInstance) {
       return
     }
 
@@ -56,6 +52,40 @@ export class GraphDisplayManager {
 
     // Avoid redrawing the plot when zoomed
     this._plotInstance.setData(this.getGraphData(), !isZoomed)
+    this.updateEmptyState()
+  }
+
+  bootstrapFromServerGraphs () {
+    const servers = this._app.serverRegistry.getServerRegistrations()
+
+    if (servers.length === 0) {
+      return { timestamps: [], data: [] }
+    }
+
+    const timestamps = servers[0]._graphData[0] ? [...servers[0]._graphData[0]] : []
+
+    if (timestamps.length === 0) {
+      return { timestamps: [], data: [] }
+    }
+
+    const data = servers.map((serverRegistration) => {
+      return serverRegistration._graphData[1] ? [...serverRegistration._graphData[1]] : timestamps.map(() => null)
+    })
+
+    return { timestamps, data }
+  }
+
+  hasGraphData () {
+    return this._graphTimestamps.length > 0 &&
+      this._graphData.some((series) => series.some((val) => typeof val === 'number'))
+  }
+
+  updateEmptyState () {
+    const emptyEl = document.getElementById('big-graph-empty')
+
+    if (emptyEl) {
+      emptyEl.style.display = this.hasGraphData() ? 'none' : 'flex'
+    }
   }
 
   loadLocalStorage () {
@@ -123,12 +153,13 @@ export class GraphDisplayManager {
   }
 
   getPlotSize () {
-    const container = document.getElementById('big-graph')
-    const parent = container?.parentElement
-    const width = parent ? parent.clientWidth - 8 : Math.max(window.innerWidth - 48, 600)
+    const panel = document.querySelector('.graph-panel')
+    const width = panel
+      ? panel.clientWidth - 16
+      : Math.min(window.innerWidth - 48, 1280)
 
     return {
-      width,
+      width: Math.max(width, 400),
       height: 480
     }
   }
@@ -179,6 +210,11 @@ export class GraphDisplayManager {
   }
 
   buildPlotInstance (timestamps, data) {
+    if (this._plotInstance) {
+      this._plotInstance.destroy()
+      this._plotInstance = undefined
+    }
+
     // Lazy load settings from localStorage, if any and if enabled
     if (!this._hasLoadedSettings) {
       this._hasLoadedSettings = true
@@ -186,11 +222,29 @@ export class GraphDisplayManager {
       this.loadLocalStorage()
     }
 
-    for (const playerCounts of data) {
+    let plotTimestamps = timestamps
+    let plotData = data
+
+    if (plotTimestamps.length === 0) {
+      const bootstrap = this.bootstrapFromServerGraphs()
+
+      if (bootstrap.timestamps.length > 0) {
+        plotTimestamps = bootstrap.timestamps
+        plotData = bootstrap.data
+      } else {
+        const now = Math.floor(Date.now() / 1000)
+        const durationSec = this._app.publicConfig.graphMaxLength * 60
+        plotTimestamps = [now - durationSec, now]
+        const serverCount = this._app.serverRegistry.getServerRegistrations().length
+        plotData = Array.from({ length: serverCount }, () => plotTimestamps.map(() => null))
+      }
+    }
+
+    for (const playerCounts of plotData) {
       // Each playerCounts value corresponds to a ServerRegistration
       // Require each array is the length of timestamps, if not, pad at the start with null values to fit to length
       // This ensures newer ServerRegistrations do not left align due to a lower length
-      const lengthDiff = timestamps.length - playerCounts.length
+      const lengthDiff = plotTimestamps.length - playerCounts.length
 
       if (lengthDiff > 0) {
         const padding = Array(lengthDiff).fill(null)
@@ -199,8 +253,8 @@ export class GraphDisplayManager {
       }
     }
 
-    this._graphTimestamps = timestamps
-    this._graphData = data
+    this._graphTimestamps = plotTimestamps
+    this._graphData = plotData
 
     const series = this._app.serverRegistry.getServerRegistrations().map(serverRegistration => {
       return {
@@ -303,8 +357,13 @@ export class GraphDisplayManager {
       }
     }, this.getGraphData(), document.getElementById('big-graph'))
 
-    // Show the settings-toggle element
     document.getElementById('settings-toggle').style.display = 'inline-flex'
+    this.updateEmptyState()
+
+    requestAnimationFrame(() => {
+      this.resize()
+      this.updateEmptyState()
+    })
   }
 
   redraw = () => {
@@ -464,7 +523,11 @@ export class GraphDisplayManager {
     // Reset modified DOM structures
     document.getElementById('big-graph-checkboxes').innerHTML = ''
     document.getElementById('big-graph-controls').style.display = 'none'
-
     document.getElementById('settings-toggle').style.display = 'none'
+
+    const emptyEl = document.getElementById('big-graph-empty')
+    if (emptyEl) {
+      emptyEl.style.display = 'flex'
+    }
   }
 }

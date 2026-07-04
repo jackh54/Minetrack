@@ -133,7 +133,8 @@ export async function pingJavaServer (host, port, protocolVersion, timeoutMs) {
           players: {
             online: capPlayerCount(host, parseInt(status.players.online, 10))
           },
-          version: parseInt(status.version.protocol, 10)
+          version: parseInt(status.version.protocol, 10),
+          versionName: status.version.name
         }
 
         if (status.favicon && status.favicon.startsWith('data:image/')) {

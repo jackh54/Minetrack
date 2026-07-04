@@ -27,7 +27,7 @@ export class ServerRegistration {
     this.lastFavicon = undefined
     this.faviconHash = undefined
     this._graphPeakIndex = undefined
-    this._nextProtocolIndex = undefined
+    this.versionName = undefined
   }
 
   handlePing (timestamp, resp, err, version, updateHistoryGraph) {
@@ -47,8 +47,11 @@ export class ServerRegistration {
     update.playerCount = resp?.players?.online ?? null
 
     if (resp) {
-      if (resp.version && this.updateProtocolVersionCompat(resp.version, version.protocolId, version.protocolIndex)) {
+      if (resp.version && this.updateProtocolVersionCompat(resp.version, resp.versionName)) {
         update.versions = this.versions
+        if (this.versionName) {
+          update.versionName = this.versionName
+        }
       }
 
       if (config.logToDatabase && (!this.recordData || resp.players.online > this.recordData.playerCount)) {
@@ -81,6 +84,10 @@ export class ServerRegistration {
         versions: this.versions,
         recordData: this.recordData,
         favicon: this.getFaviconUrl()
+      }
+
+      if (this.versionName) {
+        payload.versionName = this.versionName
       }
 
       const graphPeakData = this.getGraphPeak()
@@ -169,18 +176,35 @@ export class ServerRegistration {
     }
   }
 
-  updateProtocolVersionCompat (incomingId, outgoingId, protocolIndex) {
-    const isSuccess = incomingId === outgoingId
-    const indexOf = this.versions.indexOf(protocolIndex)
+  findProtocolIndex (protocolId) {
+    const protocolVersions = minecraftVersions[this.data.type]
+    let bestIndex = -1
 
-    if (isSuccess && indexOf < 0) {
-      this.versions.push(protocolIndex)
-      this.versions.sort((a, b) => a - b)
+    for (let i = 0; i < protocolVersions.length; i++) {
+      if (protocolVersions[i].protocolId === protocolId) {
+        bestIndex = i
+      }
+    }
+
+    return bestIndex
+  }
+
+  updateProtocolVersionCompat (reportedProtocolId, versionName) {
+    const protocolIndex = this.findProtocolIndex(reportedProtocolId)
+
+    if (protocolIndex >= 0) {
+      if (this.versions.length === 1 && this.versions[0] === protocolIndex) {
+        return false
+      }
+
+      this.versions = [protocolIndex]
+      this.versionName = undefined
       return true
     }
 
-    if (!isSuccess && indexOf >= 0) {
-      this.versions.splice(indexOf, 1)
+    if (versionName && this.versionName !== versionName) {
+      this.versions = []
+      this.versionName = versionName
       return true
     }
 
@@ -196,16 +220,11 @@ export class ServerRegistration {
     }
 
     const protocolVersions = minecraftVersions[this.data.type]
-
-    if (typeof this._nextProtocolIndex === 'undefined' || this._nextProtocolIndex + 1 >= protocolVersions.length) {
-      this._nextProtocolIndex = 0
-    } else {
-      this._nextProtocolIndex++
-    }
+    const latestIndex = protocolVersions.length - 1
 
     return {
-      protocolId: protocolVersions[this._nextProtocolIndex].protocolId,
-      protocolIndex: this._nextProtocolIndex
+      protocolId: protocolVersions[latestIndex].protocolId,
+      protocolIndex: latestIndex
     }
   }
 

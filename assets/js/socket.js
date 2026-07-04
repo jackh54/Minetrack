@@ -55,17 +55,19 @@ export class SocketManager {
 
           // Allow the graphDisplayManager to control whether or not the historical graph is loaded
           // Defer to isGraphVisible from the publicConfig to understand if the frontend will ever receive a graph payload
-          if (this._app.publicConfig.isGraphVisible) {
-            this.sendHistoryGraphRequest()
-          }
+          // History graph request is sent after handleSyncComplete (see below)
 
           payload.servers.forEach((serverPayload, serverId) => {
             this._app.addServer(serverId, serverPayload, payload.timestampPoints)
           })
 
-          // Init payload contains all data needed to render the page
-          // Alert the app it is ready
           this._app.handleSyncComplete()
+
+          if (this._app.publicConfig.isGraphVisible) {
+            requestAnimationFrame(() => {
+              this.sendHistoryGraphRequest()
+            })
+          }
 
           break
 
@@ -98,28 +100,28 @@ export class SocketManager {
         }
 
         case 'historyGraph': {
-          this._app.graphDisplayManager.buildPlotInstance(payload.timestamps, payload.graphData)
+          requestAnimationFrame(() => {
+            this._app.graphDisplayManager.buildPlotInstance(payload.timestamps, payload.graphData)
 
-          // Build checkbox elements for graph controls
-          let controlsHTML = ''
+            let controlsHTML = ''
 
-          this._app.serverRegistry.getServerRegistrations()
-            .map(serverRegistration => serverRegistration.data.name)
-            .sort()
-            .forEach(serverName => {
-              const serverRegistration = this._app.serverRegistry.getServerRegistration(serverName)
+            this._app.serverRegistry.getServerRegistrations()
+              .map(serverRegistration => serverRegistration.data.name)
+              .sort()
+              .forEach(serverName => {
+                const serverRegistration = this._app.serverRegistry.getServerRegistration(serverName)
 
-              controlsHTML += `<label class="graph-control-label">
-                <input type="checkbox" class="graph-control" minetrack-server-id="${serverRegistration.serverId}" ${serverRegistration.isVisible ? 'checked' : ''}>
-                ${serverName}
-                </label>`
-            })
+                controlsHTML += `<label class="graph-control-label">
+                  <input type="checkbox" class="graph-control" minetrack-server-id="${serverRegistration.serverId}" ${serverRegistration.isVisible ? 'checked' : ''}>
+                  ${serverName}
+                  </label>`
+              })
 
-          document.getElementById('big-graph-checkboxes').innerHTML = controlsHTML
-          document.getElementById('big-graph-controls').style.display = 'block'
+            document.getElementById('big-graph-checkboxes').innerHTML = controlsHTML
+            document.getElementById('big-graph-controls').style.display = 'block'
 
-          // Bind click event for updating graph data
-          this._app.graphDisplayManager.initEventListeners()
+            this._app.graphDisplayManager.initEventListeners()
+          })
           break
         }
       }

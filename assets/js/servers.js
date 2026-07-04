@@ -253,8 +253,10 @@ export class ServerRegistration {
   }
 
   updateServerStatus (ping, minecraftVersions) {
-    if (ping.versions) {
+    if (ping.versions && ping.versions.length > 0) {
       this._renderValue('version', formatMinecraftVersions(ping.versions, minecraftVersions[this.data.type]) || '')
+    } else if (ping.versionName) {
+      this._renderValue('version', ping.versionName)
     }
 
     if (ping.recordData) {
