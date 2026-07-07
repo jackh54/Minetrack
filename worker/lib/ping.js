@@ -1,5 +1,6 @@
 import { connect } from 'cloudflare:sockets'
 import { resolveConnectTarget } from './connect-target.js'
+import { pingJavaServerViaHttp } from './http-ping.js'
 import { concatBytes, readVarInt, writeVarInt } from './varint.js'
 
 const MAX_PLAYER_COUNT = 250000
@@ -212,12 +213,24 @@ export async function pingServer (serverRegistration, timeout, protocolVersion) 
       const resolved = await serverRegistration.dnsResolver.resolve()
       const remainingTimeout = Math.max(resolved.remainingTimeout, MIN_CONNECT_TIMEOUT)
       const configuredHost = resolved.configuredHost
-      const connectTarget = await resolveConnectTarget(
-        configuredHost,
-        resolved.configuredPort,
-        resolved.srvHost,
-        resolved.srvPort
-      )
+
+      let connectTarget
+
+      try {
+        connectTarget = await resolveConnectTarget(
+          configuredHost,
+          resolved.configuredPort,
+          resolved.srvHost,
+          resolved.srvPort
+        )
+      } catch (err) {
+        if (err?.message === 'Server behind Cloudflare proxy') {
+          return pingJavaServerViaHttp(configuredHost)
+        }
+
+        throw err
+      }
+
       const connectPort = connectTarget.connectPort
       const handshakePort = connectPort
 
@@ -256,6 +269,10 @@ export async function pingServer (serverRegistration, timeout, protocolVersion) 
 
           if (i < handshakeHosts.length - 1 && isRetryablePingError(err)) {
             continue
+          }
+
+          if (isRetryablePingError(err)) {
+            return pingJavaServerViaHttp(configuredHost)
           }
 
           throw err
