@@ -26,16 +26,28 @@ export class DNSResolver {
     return Math.max(config.rates.connectTimeout - dnsBudgetUsed, MIN_CONNECT_TIMEOUT)
   }
 
+  _noSrvResult (startTime) {
+    return {
+      configuredHost: this._ip,
+      configuredPort: this._port,
+      srvHost: undefined,
+      srvPort: undefined,
+      remainingTimeout: this._remainingConnectTimeout(startTime)
+    }
+  }
+
   async resolve () {
+    const startTime = TimeTracker.getEpochMillis()
+
     if (this._isSkipSrv()) {
       return {
-        host: this._ip,
-        port: this._port,
+        configuredHost: this._ip,
+        configuredPort: this._port,
+        srvHost: undefined,
+        srvPort: undefined,
         remainingTimeout: config.rates.connectTimeout
       }
     }
-
-    const startTime = TimeTracker.getEpochMillis()
 
     try {
       const response = await fetch(
@@ -57,11 +69,7 @@ export class DNSResolver {
           this._skipSrv()
         }
 
-        return {
-          host: this._ip,
-          port: this._port,
-          remainingTimeout: this._remainingConnectTimeout(startTime)
-        }
+        return this._noSrvResult(startTime)
       }
 
       const srvRecord = answers.find((answer) => answer.type === 33) || answers[0]
@@ -70,16 +78,14 @@ export class DNSResolver {
       const host = parts[3].replace(/\.$/, '')
 
       return {
-        host,
-        port,
+        configuredHost: this._ip,
+        configuredPort: this._port,
+        srvHost: host,
+        srvPort: port,
         remainingTimeout: this._remainingConnectTimeout(startTime)
       }
     } catch {
-      return {
-        host: this._ip,
-        port: this._port,
-        remainingTimeout: this._remainingConnectTimeout(startTime)
-      }
+      return this._noSrvResult(startTime)
     }
   }
 }

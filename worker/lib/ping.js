@@ -1,4 +1,6 @@
 import { connect } from 'cloudflare:sockets'
+import { resolveConnectTarget } from './connect-target.js'
+import { pingJavaServerViaHttp } from './http-ping.js'
 import { concatBytes, readVarInt, writeVarInt } from './varint.js'
 
 const MAX_PLAYER_COUNT = 250000
@@ -180,7 +182,18 @@ function isRetryablePingError (err) {
   const message = err?.message || ''
   return message.includes('Socket closed') ||
     message.includes('Ping timed out') ||
-    message.includes('Unexpected status response')
+    message.includes('Unexpected status response') ||
+    message.includes('proxy request failed')
+}
+
+function isProxyStatusFailure (status) {
+  const haystack = [
+    status?.version?.name,
+    typeof status?.description === 'string' ? status.description : JSON.stringify(status?.description || '')
+  ].join(' ').toLowerCase()
+
+  return haystack.includes('proxy request failed') ||
+    haystack.includes('invalid hostname')
 }
 
 async function attemptPing (connectHost, connectPort, handshakeHost, handshakePort, protocolVersion, timeoutMs) {
@@ -198,43 +211,68 @@ export async function pingServer (serverRegistration, timeout, protocolVersion) 
   switch (serverRegistration.data.type) {
     case 'PC': {
       const resolved = await serverRegistration.dnsResolver.resolve()
-      const connectPort = resolved.port || 25565
       const remainingTimeout = Math.max(resolved.remainingTimeout, MIN_CONNECT_TIMEOUT)
-      const configuredHost = serverRegistration.data.ip
+      const configuredHost = resolved.configuredHost
+
+      let connectTarget
+
+      try {
+        connectTarget = await resolveConnectTarget(
+          configuredHost,
+          resolved.configuredPort,
+          resolved.srvHost,
+          resolved.srvPort
+        )
+      } catch (err) {
+        if (err?.message === 'Server behind Cloudflare proxy') {
+          return pingJavaServerViaHttp(configuredHost)
+        }
+
+        throw err
+      }
+
+      const connectPort = connectTarget.connectPort
       const handshakePort = connectPort
 
-      const attempts = [
-        { handshakeHost: resolved.host, label: 'resolved hostname' },
-        { handshakeHost: configuredHost, label: 'configured hostname' }
-      ]
-
-      // Avoid duplicate attempts when SRV target matches the configured hostname.
-      if (attempts[0].handshakeHost === attempts[1].handshakeHost) {
-        attempts.pop()
-      }
+      const handshakeHosts = [
+        configuredHost,
+        resolved.srvHost,
+        connectTarget.connectHost
+      ].filter((value, index, array) => value && array.indexOf(value) === index)
 
       let lastError
 
-      for (let i = 0; i < attempts.length; i++) {
+      for (let i = 0; i < handshakeHosts.length; i++) {
         const attemptTimeout = Math.max(
           remainingTimeout - (i * 500),
           MIN_CONNECT_TIMEOUT
         )
 
         try {
-          return await attemptPing(
-            resolved.host,
+          const response = await attemptPing(
+            connectTarget.connectHost,
             connectPort,
-            attempts[i].handshakeHost,
+            handshakeHosts[i],
             handshakePort,
             protocolVersion,
             attemptTimeout
           )
+
+          if (i < handshakeHosts.length - 1 && isProxyStatusFailure(response)) {
+            lastError = new Error('Proxy request failed')
+            continue
+          }
+
+          return response
         } catch (err) {
           lastError = err
 
-          if (i < attempts.length - 1 && isRetryablePingError(err)) {
+          if (i < handshakeHosts.length - 1 && isRetryablePingError(err)) {
             continue
+          }
+
+          if (isRetryablePingError(err)) {
+            return pingJavaServerViaHttp(configuredHost)
           }
 
           throw err
