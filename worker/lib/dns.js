@@ -2,6 +2,8 @@ import config from '../../config.json'
 import { TimeTracker } from './time.js'
 
 const SKIP_SRV_TIMEOUT = config.skipSrvTimeout || 60 * 60 * 1000
+const MIN_CONNECT_TIMEOUT = 2000
+const MAX_DNS_BUDGET = Math.max(config.rates.connectTimeout - MIN_CONNECT_TIMEOUT, 500)
 
 export class DNSResolver {
   constructor (ip, port) {
@@ -16,6 +18,12 @@ export class DNSResolver {
 
   _isSkipSrv () {
     return this._skipSrvUntil && TimeTracker.getEpochMillis() <= this._skipSrvUntil
+  }
+
+  _remainingConnectTimeout (startTime) {
+    const elapsed = TimeTracker.getEpochMillis() - startTime
+    const dnsBudgetUsed = Math.min(elapsed, MAX_DNS_BUDGET)
+    return Math.max(config.rates.connectTimeout - dnsBudgetUsed, MIN_CONNECT_TIMEOUT)
   }
 
   async resolve () {
@@ -52,7 +60,7 @@ export class DNSResolver {
         return {
           host: this._ip,
           port: this._port,
-          remainingTimeout: config.rates.connectTimeout - (TimeTracker.getEpochMillis() - startTime)
+          remainingTimeout: this._remainingConnectTimeout(startTime)
         }
       }
 
@@ -64,13 +72,13 @@ export class DNSResolver {
       return {
         host,
         port,
-        remainingTimeout: config.rates.connectTimeout - (TimeTracker.getEpochMillis() - startTime)
+        remainingTimeout: this._remainingConnectTimeout(startTime)
       }
     } catch {
       return {
         host: this._ip,
         port: this._port,
-        remainingTimeout: config.rates.connectTimeout - (TimeTracker.getEpochMillis() - startTime)
+        remainingTimeout: this._remainingConnectTimeout(startTime)
       }
     }
   }

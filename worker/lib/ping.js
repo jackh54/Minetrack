@@ -2,6 +2,7 @@ import { connect } from 'cloudflare:sockets'
 import { concatBytes, readVarInt, writeVarInt } from './varint.js'
 
 const MAX_PLAYER_COUNT = 250000
+const MIN_CONNECT_TIMEOUT = 2000
 
 function writeString (value) {
   const encoded = new TextEncoder().encode(value)
@@ -101,79 +102,146 @@ export function capPlayerCount (host, playerCount) {
   return playerCount
 }
 
-export async function pingJavaServer (host, port, protocolVersion, timeoutMs) {
-  const socket = connect({ hostname: host, port: port || 25565 })
-  const writer = socket.writable.getWriter()
-  const reader = socket.readable.getReader()
-
-  const timeout = new Promise((_, reject) => {
+function createTimeout (timeoutMs) {
+  return new Promise((resolve, reject) => {
     setTimeout(() => reject(new Error('Ping timed out')), timeoutMs)
   })
+}
+
+export async function pingJavaServer (connectHost, connectPort, handshakeHost, handshakePort, protocolVersion, timeoutMs) {
+  const socket = connect({ hostname: connectHost, port: connectPort || 25565 })
+
+  const timeout = createTimeout(timeoutMs)
 
   try {
     return await Promise.race([
       (async () => {
-        const handshakePayload = concatBytes(
-          writeVarInt(protocolVersion),
-          writeString(host),
-          writeUInt16BE(port || 25565),
-          writeVarInt(1)
-        )
+        await socket.opened
 
-        await writer.write(createPacket(0x00, handshakePayload))
-        await writer.write(createPacket(0x00, new Uint8Array(0)))
+        const writer = socket.writable.getWriter()
+        const reader = socket.readable.getReader()
 
-        const packet = await readPacket(reader)
-        if (packet.packetId !== 0x00) {
-          throw new Error('Unexpected status response packet')
+        try {
+          const handshakePayload = concatBytes(
+            writeVarInt(protocolVersion),
+            writeString(handshakeHost),
+            writeUInt16BE(handshakePort || 25565),
+            writeVarInt(1)
+          )
+
+          await writer.write(createPacket(0x00, handshakePayload))
+          await writer.write(createPacket(0x00, new Uint8Array(0)))
+
+          const packet = await readPacket(reader)
+          if (packet.packetId !== 0x00) {
+            throw new Error('Unexpected status response packet')
+          }
+
+          const status = parseStatusResponse(packet.data)
+          const payload = {
+            players: {
+              online: capPlayerCount(connectHost, parseInt(status.players.online, 10))
+            },
+            version: parseInt(status.version.protocol, 10),
+            versionName: status.version.name
+          }
+
+          if (status.favicon && status.favicon.startsWith('data:image/')) {
+            payload.favicon = status.favicon
+          }
+
+          return payload
+        } finally {
+          try {
+            await writer.close()
+          } catch {
+            // Ignore close errors.
+          }
+
+          try {
+            await reader.cancel()
+          } catch {
+            // Ignore cancel errors.
+          }
         }
-
-        const status = parseStatusResponse(packet.data)
-        const payload = {
-          players: {
-            online: capPlayerCount(host, parseInt(status.players.online, 10))
-          },
-          version: parseInt(status.version.protocol, 10),
-          versionName: status.version.name
-        }
-
-        if (status.favicon && status.favicon.startsWith('data:image/')) {
-          payload.favicon = status.favicon
-        }
-
-        return payload
       })(),
       timeout
     ])
   } finally {
     try {
-      await writer.close()
+      await socket.close()
     } catch {
       // Ignore close errors.
     }
-
-    try {
-      await reader.cancel()
-    } catch {
-      // Ignore cancel errors.
-    }
-
-    socket.close()
   }
+}
+
+function isRetryablePingError (err) {
+  const message = err?.message || ''
+  return message.includes('Socket closed') ||
+    message.includes('Ping timed out') ||
+    message.includes('Unexpected status response')
+}
+
+async function attemptPing (connectHost, connectPort, handshakeHost, handshakePort, protocolVersion, timeoutMs) {
+  return pingJavaServer(
+    connectHost,
+    connectPort,
+    handshakeHost,
+    handshakePort,
+    protocolVersion,
+    timeoutMs
+  )
 }
 
 export async function pingServer (serverRegistration, timeout, protocolVersion) {
   switch (serverRegistration.data.type) {
     case 'PC': {
       const resolved = await serverRegistration.dnsResolver.resolve()
-      const remainingTimeout = Math.max(resolved.remainingTimeout, 500)
+      const connectPort = resolved.port || 25565
+      const remainingTimeout = Math.max(resolved.remainingTimeout, MIN_CONNECT_TIMEOUT)
+      const configuredHost = serverRegistration.data.ip
+      const handshakePort = connectPort
 
-      return pingJavaServer(
-        resolved.host,
-        resolved.port,
-        protocolVersion,
-        remainingTimeout
-      )
+      const attempts = [
+        { handshakeHost: resolved.host, label: 'resolved hostname' },
+        { handshakeHost: configuredHost, label: 'configured hostname' }
+      ]
+
+      // Avoid duplicate attempts when SRV target matches the configured hostname.
+      if (attempts[0].handshakeHost === attempts[1].handshakeHost) {
+        attempts.pop()
+      }
+
+      let lastError
+
+      for (let i = 0; i < attempts.length; i++) {
+        const attemptTimeout = Math.max(
+          remainingTimeout - (i * 500),
+          MIN_CONNECT_TIMEOUT
+        )
+
+        try {
+          return await attemptPing(
+            resolved.host,
+            connectPort,
+            attempts[i].handshakeHost,
+            handshakePort,
+            protocolVersion,
+            attemptTimeout
+          )
+        } catch (err) {
+          lastError = err
+
+          if (i < attempts.length - 1 && isRetryablePingError(err)) {
+            continue
+          }
+
+          throw err
+        }
+      }
+
+      throw lastError
     }
 
     case 'PE':
