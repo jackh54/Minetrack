@@ -8,5 +8,25 @@
 		"name": "CherrySMP",
 		"ip": "cherrysmp.lol",
 		"type": "PC"
+	},
+	{
+		"name": "DonutSMP",
+		"ip": "donutsmp.net",
+		"type": "PC"
+	},
+	{
+		"name": "FreshSMP",
+		"ip": "play.freshsmp.fun",
+		"type": "PC"
+	},
+	{
+		"name": "Toxiss",
+		"ip": "mc.toxiss.net",
+		"type": "PC"
+	},
+	{
+		"name": "ShoreSMP",
+		"ip": "play.shoresmp.net",
+		"type": "PC"
 	}
 ]
