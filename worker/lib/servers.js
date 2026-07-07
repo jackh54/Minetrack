@@ -238,6 +238,12 @@ export class ServerRegistration {
       }
     }
 
+    if (message.toLowerCase().includes('proxy request failed')) {
+      message = 'Unreachable (CF proxy)'
+    } else if (message.toLowerCase().includes('server behind cloudflare proxy')) {
+      message = 'Unreachable (CF proxy)'
+    }
+
     if (message.length > 28) {
       message = message.substring(0, 28) + '...'
     }
